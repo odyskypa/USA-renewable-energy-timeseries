@@ -1,0 +1,37 @@
+---
+title: "Advanced Statistical Modelling (ASM) - Final Project"
+subtitle: "Total production of renewable energy in USA"
+author: "Odysseas Kyparissis, Pau Comas"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Data is gathered from the [US Energy Information Administration](https://www.eia.gov/totalenergy/data/browser/index.php?tbl=T10.01#/?f=M&start=199001&end=201901&charted=6-7-8-9-14) and it refers to the total production of renewable energy in USA (trillions of BTU-British Thermal Units) from 1990 to 2020.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Reading and visualizing original timeseries
+
+```{r read}
+serie=window(ts(read.table("RenewUSA.dat", header=F),start=1990,freq=12))
+serie
+```
+
+```{r viz}
+plot(serie, main="Total production of renewable energy (USA)", ylab="Trillions of BTU-British Thermal Units")
+abline(v=1990:2020,col=4,lty=3)
+```
+```{r}
+boxplot(serie~floor(time(serie)))
+```
+# Identification
+
+# Estimation
+
+# Validation
+
+# Predictions
+
+# Outlier Treatment
