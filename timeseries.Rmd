@@ -23,15 +23,629 @@ serie
 plot(serie, main="Total production of renewable energy (USA)", ylab="Trillions of BTU-British Thermal Units")
 abline(v=1990:2020,col=4,lty=3)
 ```
-```{r}
-boxplot(serie~floor(time(serie)))
-```
+
 # Identification
+
+## Determine the needed transformations to make the series stationary.
+
+Justify the transformations carried out using graphical and numerical results.
+
+**Is Variance constant?**
+
+```{r}
+boxplot(serie~floor(time(serie)), ylab="Trillions of BTU-British Thermal Units")
+```
+
+
+```{r}
+m<-apply(matrix(serie,nrow=12),2,mean)
+v<-apply(matrix(serie,nrow=12),2,var)
+plot(v~m)
+abline(lm(v~m),col=2,lty=3)
+```
+
+Although it's not perfectly clear from the previous two figures, once the mean values get higher the variance get higher as well. For that reason, it is decided to use the logarithmic transformation of the original series.
+
+```{r}
+lnserie=log(serie)
+plot(lnserie, ylab="Logarithm of Trillions of BTU-British Thermal Units")
+abline(v=1990:2020,col=4,lty=3)
+abline(h=0)
+```
+
+
+```{r}
+matrixlnserie <- matrix(lnserie,nrow=12)
+boxplot(matrixlnserie)
+```
+```{r}
+m<-apply(matrixlnserie,2,mean)
+v<-apply(matrixlnserie,2,var)
+plot(v~m)
+abline(lm(v~m),col=2,lty=3)
+```
+
+Now, it can be seen that the difference of variability is smaller we go to higher values.
+
+**Is seasonality present?**
+
+
+```{r}
+monthplot(lnserie)
+```
+```{r}
+ts.plot(matrix(lnserie,nrow=12),col=1:8)
+```
+
+It can be seen that there is an indication about a seasonal pattern, since the mean values of different months
+fluclutate, and the lines of the timeserie grouped by month show some parallel effects. For this reason a seasonal difference is applied.
+
+```{r}
+d12lnserie<-diff(lnserie,lag=12)
+plot(d12lnserie)
+abline(h=0)
+abline(h=mean(d12lnserie),col=2)
+```
+```{r}
+monthplot(d12lnserie)
+```
+```{r}
+ts.plot(matrix(d12lnserie,nrow=12),col=1:8)
+```
+
+Now it is clear that the seasonal pattern is removed.
+
+**Is the mean constant?**
+
+We have to apply one regular difference trying to make the mean constant:
+
+```{r}
+d1d12lnserie=diff(d12lnserie)
+plot(d1d12lnserie)
+abline(h=0)
+abline(h=mean(d1d12lnserie),col=2)
+```
+
+Mean seemingly constant equal to zero!!!
+
+**Check for over-differentiation: Take an extra differentiation and compare the variances.**
+
+```{r}
+d1d1d12lnserie=diff(d1d12lnserie)
+plot(d1d1d12lnserie)
+abline(h=0)
+abline(h=mean(d1d1d12lnserie),col=2)
+```
+
+
+```{r}
+var(serie)
+```
+
+```{r}
+var(lnserie)
+```
+
+```{r}
+var(d12lnserie)
+```
+```{r}
+var(d1d12lnserie)
+```
+```{r}
+var(d1d1d12lnserie)
+```
+`d1d12lnserie` presents the lower variance.
+
+**Is the current series already stationary? Plot the ACF and decide!!**
+
+```{r}
+par(mfrow=c(1,2))
+acf(d1d12lnserie, ylim=c(-1,1), lag.max=60, col=c(2,rep(1,11)), main ="ACF(serie)", lwd=2)
+pacf(d1d12lnserie, ylim=c(-1,1), lag.max=60, col=c(rep(1,11),2), main ="PACF(serie)", lwd=2)
+```
+
+* Under Stationarity: ACF falls immediately from 1 to 0
+* Under Non-stationary: the ACF declines gradually from 1 to 0 over a prolonged period of time
+
+Thus, we can conclude that `d1d12lnserie` is a stationary series.
+
+Final transformation of the total production of renewable energy (USA) timeseries:
+$W_t = (1 - B)(1 - B^{12})\log X_t$
+
+## Analyze the ACF and PACF of the stationary series to identify at least two plausible models. 
+Reason about what features of the correlograms you use to identify these models.
+
+* Seasonal part (red lags): MA(Q=1) or AR(P=4). Since MA(Q=1) has only a single parameter it is preferred.
+  * (0,1,1)_12 (MA(Q=1))
+  * (4,1,0)_12 (AR(P=4))
+* Regular part (black lags): MA(q=2) (considering that black lags around 2nd red lag to be satellites not taking them into account) or AR(p=3) (again considering that black lags around 2nd red lag to be satellites not taking them into account). Since AR(p=3) has 3 parameters we can try with ARMA(1,1) as well.
+  * (0,1,2) (MA(q=2))
+  * (3,1,0) (AR(p=3))
+  * (1,1,1) (ARMA(p=1,q=1))
+
+### Final 6 proposed models:
+* (0,1,2)(0,1,1)_12
+* (3,1,0)(0,1,1)_12
+* (1,1,1)(0,1,1)_12
+* (0,1,2)(4,1,0)_12
+* (3,1,0)(4,1,0)_12
+* (1,1,1)(4,1,0)_12
 
 # Estimation
 
+## Use R to estimate the identified models.
+
+```{r}
+plot(d1d12lnserie)
+abline(h=0) # black at 0
+abline(h=mean(d1d12lnserie), col=2) # red close to 0
+```
+
+
+```{r}
+(mod0a=arima(d1d12lnserie,order=c(0,0,2),seasonal=list(order=c(0,0,1),period=12)))
+```
+
+```{r}
+(mod0b=arima(d1d12lnserie,order=c(3,0,0),seasonal=list(order=c(0,0,1),period=12)))
+```
+
+
+```{r}
+(mod0c=arima(d1d12lnserie,order=c(1,0,1),seasonal=list(order=c(0,0,1),period=12)))
+```
+
+```{r}
+(mod0d=arima(d1d12lnserie,order=c(0,0,2),seasonal=list(order=c(4,0,0),period=12)))
+```
+
+```{r}
+(mod0e=arima(d1d12lnserie,order=c(3,0,0),seasonal=list(order=c(4,0,0),period=12)))
+```
+
+```{r}
+(mod0f=arima(d1d12lnserie,order=c(1,0,1),seasonal=list(order=c(4,0,0),period=12)))
+```
+
+
+In all cases, the t-ratio of the intercept is lower than 2, for example:
+
+* `mod0a` and `mod0c`:
+
+  * \[ \frac{1e-04}{2e-04} = 0.5 < 2 \]
+
+The same is true for the rest of the models following the same idea, meaning that the intercept is not significant. Since the mean was very close to 0 the result was expected. Thus, we can discard the mean, meaning we can move to the training of the model with the original format of the data (after the application of the logarithm).
+
+## Estimating parameters and checking their significance
+
+```{r}
+(mod1a <- arima(lnserie, order=c(0,1,2), seasonal=list(order=c(0,1,1), period=12)))
+```
+Let's check the significance of the parameters of `mod1a`:
+ma1: \[
+\frac{0.2486}{0.0537} = 4.629423 > 2
+\]
+ma2: \[
+\frac{0.2256}{0.0558} = 4.043011 > 2
+\]
+sma1: \[
+\frac{0.8317}{0.0437} = 19.03204 > 2
+\]
+
+Thus we can see that all parameters are significant, no need to fix any of them.
+
+Let's check the significance of the parameters of `mod1b` now:
+
+```{r}
+(mod1b=arima(lnserie,order=c(3,1,0),seasonal=list(order=c(0,1,1),period=12)))
+```
+ar1: \[
+\frac{0.2531}{0.0550} = 4.601818 > 2
+\]
+ar2: \[
+\frac{0.2808}{0.0541} = 5.190388 > 2
+\]
+ar3: \[
+\frac{0.0982}{0.0542} = 1.811808 < 2
+\]
+sma1: \[
+\frac{0.8163}{0.0445} = 18.93409 > 2
+\]
+
+we can see that `ar3` is not significant, thus we can retrain the model by downgrading the AR part to have `p=2`.
+
+
+```{r}
+(mod1b_2=arima(lnserie,order=c(2,1,0),seasonal=list(order=c(0,1,1),period=12)))
+```
+
+ar1: \[
+\frac{0.2287}{0.0535} = 4.274766 > 2
+\]
+ar2: \[
+\frac{0.2581}{0.0528} = 4.888258 > 2
+\]
+sma1: \[
+\frac{0.8123}{0.0439} = 18.50342 > 2
+\]
+
+Now all parameters are significant, athough the `AIC` measure got higher for approx. 1 value. 
+
+Let's check the significance of the parameters of `mod1c` now:
+
+```{r}
+(mod1c <- arima(lnserie, order=c(1,1,1),seasonal=list(order=c(0,1,1),period=12)))
+```
+ar1: \[
+\frac{0.4597}{0.1157} = 3.973207 > 2
+\]
+ma1: \[
+\frac{0.7434}{0.0872} = 8.525229 > 2
+\]
+sma1: \[
+\frac{0.8331}{0.0440} = 18.93409 > 2
+\]
+
+again all of them are significant.
+
+Let's check the significance of the parameters of `mod1d` now:
+
+```{r}
+(mod1d=arima(lnserie,order=c(0,1,2),seasonal=list(order=c(4,1,0),period=12)))
+```
+
+ma1: \[
+\frac{0.2537}{0.0548} = 4.629562 > 2
+\]
+ma2: \[
+\frac{0.2135}{0.0550} = 3.881818 > 2
+\]
+sar1: \[
+\frac{0.625}{0.054} = 11.57407 > 2
+\]
+sar2: \[
+\frac{0.5160}{0.0627} = 8.229665 > 2
+\]
+sar3: \[
+\frac{0.3151}{0.0627} = 5.025518 > 2
+\]
+sar4: \[
+\frac{0.2303}{0.0557} = 4.13465 > 2
+\]
+
+For `mod1e`:
+
+```{r}
+(mod1e=arima(lnserie,order=c(3,1,0),seasonal=list(order=c(4,1,0),period=12)))
+```
+
+ar1: \[
+\frac{0.2679}{0.0615} = 4.356098 > 2
+\]
+ar2: \[
+\frac{0.2949}{0.0786} = 3.751908 > 2
+\]
+ar3: \[
+\frac{0.0972}{0.0602} = 1.614618 < 2
+\]
+sar1: \[
+\frac{0.6291}{0.0632} = 9.954114 > 2
+\]
+sar2: \[
+\frac{0.5229}{0.0888} = 5.888514 > 2
+\]
+sar3: \[
+\frac{0.3126}{0.0751} = 4.16245 > 2
+\]
+sar4: \[
+\frac{0.2222}{0.0848} = 2.620283 > 2
+\]
+
+Again, it can be seen that `ar3` is an insignificant parameter, for that reason we will change it to an `AR` with `p=2`.
+
+```{r}
+(mod1e_2=arima(lnserie,order=c(2,1,0),seasonal=list(order=c(4,1,0),period=12)))
+```
+
+ar1: \[
+\frac{0.2417}{0.0538} = 4.492565 > 2
+\]
+ar2: \[
+\frac{0.2706}{0.0530} = 5.10566 > 2
+\]
+sar1: \[
+\frac{0.6342}{0.0544} = 11.65809 > 2
+\]
+sar2: \[
+\frac{0.5209}{0.0632} = 8.242089 > 2
+\]
+sar3: \[
+\frac{0.3149}{0.0631} = 4.990491 > 2
+\]
+sar4: \[
+\frac{0.2247}{0.0558} = 4.026882 > 2
+\]
+
+For `mod1f`:
+
+```{r}
+(mod1f=arima(lnserie,order=c(1,1,1),seasonal=list(order=c(4,1,0),period=12)))
+
+```
+
+Again:
+
+ar1: \[
+\frac{0.4016}{0.1315} = 3.053992 > 2
+\]
+ma1: \[
+\frac{0.6974}{0.1033} = 6.75121 > 2
+\]
+sar1: \[
+\frac{0.6255}{0.0542} = 11.54059 > 2
+\]
+sar2: \[
+\frac{0.5100}{0.0630} = 8.095238 > 2
+\]
+sar3: \[
+\frac{0.3100}{0.0628} = 4.936306 > 2
+\]
+sar4: \[
+\frac{0.2269}{0.0558} = 4.066308 > 2
+\]
+
+
+To conclude, we can see that between all models the lowest AIC values is $AIC = -1230.79$ for `mod1a`, followed by `mod1b` with $AIC = -1228.93$. For this reason it is decided to continue the analysis with `mod1a` and `mod1b`.
+
 # Validation
 
+```{r}
+#################Validation#################################
+validation=function(model){
+  s=frequency(get(model$series))
+  resi=model$residuals
+  par(mfrow=c(2,2),mar=c(3,3,3,3))
+  #Residuals plot
+  plot(resi,main="Residuals")
+  abline(h=0)
+  abline(h=c(-3*sd(resi),3*sd(resi)),lty=3,col=4)
+  #Square Root of absolute values of residuals (Homocedasticity)
+  scatter.smooth(sqrt(abs(resi)),main="Square Root of Absolute residuals",
+                 lpars=list(col=2))
+  
+  #Normal plot of residuals
+  qqnorm(resi)
+  qqline(resi,col=2,lwd=2)
+  
+  ##Histogram of residuals with normal curve
+  hist(resi,breaks=20,freq=FALSE)
+  curve(dnorm(x,mean=mean(resi),sd=sd(resi)),col=2,add=T)
+  
+  
+  #ACF & PACF of residuals
+  par(mfrow=c(1,2))
+  acf(resi,ylim=c(-1,1),lag.max=60,col=c(2,rep(1,s-1)),lwd=2)
+  pacf(resi,ylim=c(-1,1),lag.max=60,col=c(rep(1,s-1),2),lwd=2)
+  par(mfrow=c(1,1))
+  
+  #Ljung-Box p-values
+  par(mar=c(2,2,1,1))
+  tsdiag(model,gof.lag=7*s)
+  cat("\n--------------------------------------------------------------------\n")
+  print(model)
+  
+  #Stationary and Invertible
+  cat("\nModul of AR Characteristic polynomial Roots: ", 
+      Mod(polyroot(c(1,-model$model$phi))),"\n")
+  cat("\nModul of MA Characteristic polynomial Roots: ",
+      Mod(polyroot(c(1,model$model$theta))),"\n")
+  
+  suppressMessages(require(forecast,quietly=TRUE,warn.conflicts=FALSE))
+  plot(model)
+  
+  #Model expressed as an MA infinity (psi-weights)
+  psis=ARMAtoMA(ar=model$model$phi,ma=model$model$theta,lag.max=36)
+  names(psis)=paste("psi",1:36)
+  cat("\nPsi-weights (MA(inf))\n")
+  cat("\n--------------------\n")
+  print(psis[1:24])
+  
+  #Model expressed as an AR infinity (pi-weights)
+  pis=-ARMAtoMA(ar=-model$model$theta,ma=-model$model$phi,lag.max=36)
+  names(pis)=paste("pi",1:36)
+  cat("\nPi-weights (AR(inf))\n")
+  cat("\n--------------------\n")
+  print(pis[1:24])
+   
+  cat("\nDescriptive Statistics for the Residuals\n")
+  cat("\n----------------------------------------\n") 
+  
+  suppressMessages(require(fBasics,quietly=TRUE,warn.conflicts=FALSE))
+  ##Anderson-Darling test
+  print(basicStats(resi))
+  
+  ## Add here complementary tests (use with caution!)
+  ##---------------------------------------------------------
+  cat("\nNormality Tests\n")
+  cat("\n--------------------\n")
+ 
+  ##Shapiro-Wilks Normality test
+  print(shapiro.test(resi))
+
+  suppressMessages(require(nortest,quietly=TRUE,warn.conflicts=FALSE))
+  ##Anderson-Darling test
+  print(ad.test(resi))
+  
+  suppressMessages(require(tseries,quietly=TRUE,warn.conflicts=FALSE))
+  ##Jarque-Bera test
+  print(jarque.bera.test(resi))
+  
+  cat("\nHomoscedasticity Test\n")
+  cat("\n--------------------\n")
+  suppressMessages(require(lmtest,quietly=TRUE,warn.conflicts=FALSE))
+  ##Breusch-Pagan test
+  obs=get(model$series)
+  print(bptest(resi~I(obs-resi)))
+  
+  cat("\nIndependence Tests\n")
+  cat("\n--------------------\n")
+  
+  ##Durbin-Watson test
+  print(dwtest(resi~I(1:length(resi))))
+  
+  ##Ljung-Box test
+  cat("\nLjung-Box test\n")
+  print(t(apply(matrix(c(1:4,(1:4)*s)),1,function(el) {
+    te=Box.test(resi,type="Ljung-Box",lag=el)
+    c(lag=(te$parameter),statistic=te$statistic[[1]],p.value=te$p.value)})))
+  
+}
+################# Fi Validation #################################
+```
+
+## mod1a
+
+### Residual Plot
+
+In the following plot we need to see a constant variance of the residuals. Between the blue lines of -2, +2 stds (for each thousand only 2 can be outside) I need to find the 95% of the observations. Or 97.5% between -3, +3 stds (for each thousand only 3 can be outside).
+
+```{r}
+res = resid(mod1a)
+plot(res, type='l')
+abline(h=0)
+abline(h=c(-3,-2,2,3)*sd(res), lty=3, col=4)
+```
+
+We can see that there are several cases where the data lay outside the intervals of standard deviations violating the afore-mentioned rule. Thus, either `clusters of volatility` exist, meaning that the variance increases (or in general changes a lot) in specific periods, or `outliers` are present which need to be treated. Outlier treatment is performed lately.
+
+
+### Estimation of the Dispertion
+
+```{r}
+par(mfrow=c(1,2),mar=c(3,3,3,3))
+#Residuals plot
+plot(res,main="Residuals")
+abline(h=0)
+abline(h=c(-3*sd(res),3*sd(res)),lty=3,col=4)
+#Square Root of absolute values of residuals (Homocedasticity)
+scatter.smooth(sqrt(abs(res)),main="Square Root of Absolute residuals",
+lpars=list(col=2))
+```
+
+We can see in both graphical representations generated before, that the variance of the residuals is not constant. The red line shows that there is bigger variance during a specific period.
+
+```{r}
+par(mfrow=c(1,2))
+acf(res^2, ylim=c(-1,1), lag.max = 72, col=c(2,rep(1,11)),lwd=2)
+pacf(res^2, ylim=c(-1,1), lag.max = 72, col=c(rep(1,11),2), lwd=2)
+par(mfrow=c(1,1))
+```
+
+When we find significant lags here, implies that there is volatility. It means that we have a time series that at some point the variability is small and at the same level in a different time the variability is high.
+
+When heteroscedasticity is present, there are 2 things that might lead to this result, or we have outliers or volatility. If the points lying outside the borders are not so much most probably we are having outliers, otherwise we might have volatility.
+
+### Normality test
+
+```{r}
+par(mfrow=c(1,2),mar=c(3,3,3,3))
+#Normal plot of residuals
+qqnorm(res)
+qqline(res,col=2,lwd=2)
+##Histogram of residuals with normal curve
+hist(res,breaks=10,freq=F)
+curve(dnorm(x,mean=mean(res),sd=sd(res)),col=2,add=T)
+```
+
+We need to find the residuals lying near the red line. If we find curvature in the left plot, it represents asymmetry of the residuals. For example, in economic data we could find in the start and the end big differences from the red lines. If those points are a lot it might indicate volatility (HEAVY TAILS) (Excess of kurtosis) (this means that the kurtosis, 3rd moment, is greater than 3, that the probability of outliers is greater than the Gaussian), if they are not a lot, they could represent outliers.
+
+### Total Validation
+
+```{r}
+validation(mod1a)
+```
+
+If all the complex roots of the characteristic polynomial of the `MA` part lie outside the unit circle the model is invertible. Here, we deal with the inverse of the roots, so we want all the points inside instead of outside, which is true. Thus properties of the model are good, and we can work with finite memory in computer, however model was not validated because of outliers, some of residuals were not independent.
+
+As for `ljung box` tests, we see several rejections of white noise for residuals, since there are p values lower than $0,05$. The null hypothesis for the Ljung-Box test is that the auto-correlations of a time series are zero for all lags up to a certain specified lag $k$.
+
+## mod1b
+
+```{r}
+validation(mod1b)
+```
+
+**ADD COMMENTS ON THE RESULTS OF mod1b HERE, ONCE THIS IS DONE WE NEED TO SELECT BETWEEN THE 2 MODELS (QUESTION 3D) AND THEN UPDATE THE CODE BELOW FOR QUESTION 4 AND 5. CODE OF QUESTION 4 IS READY, WE ONLY NEED TO CHANGE `pdq` and `PDQ` IN THE FOLLOWING COMMAND. OUTLIER TREATMENT IS COMPLETELY MISSING !!!**
+
 # Predictions
+
+## mod1a
+
+```{r}
+ultim=c(2018,12)
+pdq=c(1,1,2)
+PDQ=c(0,1,1)
+
+serie2=window(serie, end=ultim)
+lnserie2=log(serie2)
+serie1=window(serie, end=ultim+c(1,0))
+lnserie1=log(serie1)
+
+(modA=arima(lnserie1,order=pdq,seasonal=list(order=PDQ,period=12)))
+```
+
+```{r}
+(modB=arima(lnserie2,order=pdq,seasonal=list(order=PDQ,period=12)))
+```
+
+```{r}
+pred=predict(modB,n.ahead=12)
+pr<-ts(c(tail(lnserie2,1),pred$pred),start=ultim,freq=12)
+se<-ts(c(0,pred$se),start=ultim,freq=12)
+
+#Intervals
+tl<-ts(exp(pr-1.96*se),start=ultim,freq=12)
+tu<-ts(exp(pr+1.96*se),start=ultim,freq=12)
+pr<-ts(exp(pr),start=ultim,freq=12)
+
+
+ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-2,+2),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
+abline(v=(ultim[1]-2):(ultim[1]+2),lty=3,col=4)
+```
+```{r}
+obs=window(serie,start=ultim+c(0,1))
+pr=window(pr,start=ultim+c(0,1))
+ts(data.frame(LowLim=tl[-1],Predic=pr,UpperLim=tu[-1],Observ=obs,Error=obs-pr,PercentError=(obs-pr)/obs),start=ultim+c(0,1),freq=12)
+```
+```{r}
+mod.RMSE1=sqrt(sum((obs-pr)^2)/12)
+mod.MAE1=sum(abs(obs-pr))/12
+mod.RMSPE1=sqrt(sum(((obs-pr)/obs)^2)/12)
+mod.MAPE1=sum(abs(obs-pr)/obs)/12
+
+data.frame("RMSE"=mod.RMSE1,"MAE"=mod.MAE1,"RMSPE"=mod.RMSPE1,"MAPE"=mod.MAPE1)
+```
+```{r}
+mCI1=mean(tu-tl)
+
+cat("\nMean Length CI: ",mCI1)
+```
+
+```{r}
+pred=predict(modA,n.ahead=12)
+pr<-ts(c(tail(lnserie1,1),pred$pred),start=ultim+c(1,0),freq=12)
+se<-ts(c(0,pred$se),start=ultim+c(1,0),freq=12)
+
+tl1<-ts(exp(pr-1.96*se),start=ultim+c(1,0),freq=12)
+tu1<-ts(exp(pr+1.96*se),start=ultim+c(1,0),freq=12)
+pr1<-ts(exp(pr),start=ultim+c(1,0),freq=12)
+
+ts.plot(serie,tl1,tu1,pr1,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=c(ultim[1]-2,ultim[1]+3),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
+abline(v=(ultim[1]-2):(ultim[1]+3),lty=3,col=4)
+```
+```{r}
+(previs1=window(cbind(tl1,pr1,tu1),start=ultim+c(1,0)))
+```
 
 # Outlier Treatment
