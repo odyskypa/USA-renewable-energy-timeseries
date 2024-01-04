@@ -65,7 +65,7 @@ plot(v~m)
 abline(lm(v~m),col=2,lty=3)
 ```
 
-Now, it can be seen that the difference of variability is smaller we go to higher values.
+Now, it can be seen that we erased the raise of variability over the mean successfully.
 
 **Is seasonality present?**
 
@@ -74,7 +74,7 @@ Now, it can be seen that the difference of variability is smaller we go to highe
 plot(decompose(lnserie))
 ```
 
-log(Xt) = Linear Trend + Seasonal component + stationary process
+We can clearly see a potential seasonal component, we'll confirm it nextly. log(Xt) = Linear Trend + Seasonal component + stationary process
 
 ```{r}
 monthplot(lnserie)
@@ -83,8 +83,9 @@ monthplot(lnserie)
 ts.plot(matrix(lnserie,nrow=12),col=1:8)
 ```
 
-It can be seen that there is an indication about a seasonal pattern, since the mean values of different months
-fluclutate, and the lines of the timeserie grouped by month show some parallel effects. For this reason a seasonal difference is applied.
+It can be seen that there is an indication about a seasonal pattern, since the mean values of different months fluclutate, and the lines of the timeserie grouped by month show some parallel effects. For this reason a seasonal difference is applied.
+
+- In September we usually have the lowest renewable energy production, and in May the highest.
 
 ```{r}
 d12lnserie<-diff(lnserie,lag=12)
@@ -126,22 +127,13 @@ abline(h=mean(d1d1d12lnserie),col=2)
 
 ```{r}
 var(serie)
-```
-
-```{r}
 var(lnserie)
-```
-
-```{r}
 var(d12lnserie)
-```
-```{r}
 var(d1d12lnserie)
-```
-```{r}
 var(d1d1d12lnserie)
+
 ```
-`d1d12lnserie` presents the lower variance.
+`d1d12lnserie` presents the lower variance, so we take it for future steps.
 
 **Is the current series already stationary? Plot the ACF and decide!!**
 
@@ -213,7 +205,7 @@ abline(h=mean(d1d12lnserie), col=2) # red close to 0
 ```{r}
 (mod0f=arima(d1d12lnserie,order=c(1,0,1),seasonal=list(order=c(4,0,0),period=12)))
 ```
-```{r}
+```{r include=FALSE}
 # abs(mod$coef/sqrt(diag(mod$var.coef)))
 # cat("\nSignificant?:",abs(model$coef/sqrt(diag(model$var.coef)))>2)
 ```
@@ -232,7 +224,7 @@ The same is true for the rest of the models following the same idea, meaning tha
 ```{r}
 (mod1a <- arima(lnserie, order=c(0,1,2), seasonal=list(order=c(0,1,1), period=12)))
 ```
-** AIC decreased when the intercept was dropped; thus good decision to drop the intercept!**
+AIC decreased when the intercept was dropped comparing to previous model; thus it was a good decision to drop the intercept.
 
 Let's check the significance of the parameters of `mod1a`:
 ma1: \[
@@ -282,7 +274,7 @@ sma1: \[
 \frac{0.8123}{0.0439} = 18.50342 > 2
 \]
 
-Now all parameters are significant, athough the `AIC` measure got higher for approx. 1 value. 
+Now all parameters are significant, athough the `AIC` measure got higher, which means that although we could see `ar3` was deemed non-significant, the model with it got a slightly better fit measure and gives us an argument to keep `mod1b`.
 
 Let's check the significance of the parameters of `mod1c` now:
 
@@ -412,7 +404,7 @@ To conclude, we can see that between all models the lowest AIC values is $AIC = 
 
 # Validation
 
-```{r}
+```{r include=FALSE}
 #################Validation#################################
 validation=function(model){
   s=frequency(get(model$series))
@@ -554,11 +546,10 @@ pacf(res^2, ylim=c(-1,1), lag.max = 72, col=c(rep(1,11),2), lwd=2)
 par(mfrow=c(1,1))
 ```
 
-When we find significant lags here, implies that there is volatility. It means that we have a time series that at some point the variability is small and at the same level in a different time the variability is high.
+We need all the lags to be not significant, meaning that there is no correlation between the residuals with them-selfesWhen we find significant lags here, implies that there is volatility. It means that we have a time series that at some point the variability is small and at the same level in a different time the variability is high.
 
 When heteroscedasticity is present, there are 2 things that might lead to this result, or we have outliers or volatility. If the points lying outside the borders are not so much most probably we are having outliers, otherwise we might have volatility.
 
-** We need all the lags to be not significant, meaning that there is no correlation between the residuals with them-selfes **
 
 ### Normality test
 
@@ -570,13 +561,14 @@ qqline(res,col=2,lwd=2)
 ##Histogram of residuals with normal curve
 hist(res,breaks=10,freq=F)
 curve(dnorm(x,mean=mean(res),sd=sd(res)),col=2,add=T)
+
+##Shapiro-Wilks Normality test
+print(shapiro.test(res))
 ```
 
-We need to find the residuals lying near the red line. If we find curvature in the left plot, it represents asymmetry of the residuals. For example, in economic data we could find in the start and the end big differences from the red lines. If those points are a lot it might indicate volatility (HEAVY TAILS) (Excess of kurtosis) (this means that the kurtosis, 3rd moment, is greater than 3, that the probability of outliers is greater than the Gaussian), if they are not a lot, they could represent outliers. 
+In the Q-Q plot we need to find the residuals lying near the red line. If we find curvature in the left plot, it represents asymmetry of the residuals. For example, in economic data we could find in the start and the end big differences from the red lines. If those points are a lot it might indicate volatility (HEAVY TAILS) (Excess of kurtosis) (this means that the kurtosis, 3rd moment, is greater than 3, that the probability of outliers is greater than the Gaussian), if they are not a lot, they could represent outliers. 
 
-** if the number of points far from the reference line is quite small, then we can consider those points as outliers. For volatility, the number of points is gonna be much higher. **
-
-** If we have dependence between the residuals, it means that the model cannot explain all the variance of the model, meaning that a more complex model might be necessary **
+In this case, according to the Q-Q plot and the histogram, we believe normality could be reasonably acceptable, but with the presence of outliers. We base this in the countable number of points that diverge at the ends of the red line in the Q-Q plot. Because of this, the Shapiro-Wilk test rejects normality by a small margin, which we credit to the outliers effect.
 
 ### Total Validation
 
@@ -584,34 +576,58 @@ We need to find the residuals lying near the red line. If we find curvature in t
 validation(mod1a)
 ```
 
-If all the complex roots of the characteristic polynomial of the `MA` part lie outside the unit circle the model is invertible. Here, we deal with the inverse of the roots, so we want all the points inside instead of outside, which is true. Thus properties of the model are good, and we can work with finite memory in computer, however model was not validated because of outliers, some of residuals were not independent.
+With the initial analyses, we have rejected homoscedasticity and reasonably accepted normality. Now we evaluate invertibility, causality and independence with the remaining analyses:
 
-As for `ljung box` tests, we see several rejections of white noise for residuals, since there are p values lower than $0,05$. The null hypothesis for the Ljung-Box test is that the auto-correlations of a time series are zero for all lags up to a certain specified lag $k$.
+**Invertibility and causality**
 
-** If p-value is below blue line (5%, significance level), it means I reject the null hypothesis for this specific lag. Meaning that those residuals do not come from a Normal distribution, meaning that they are dependent **
+If all the complex roots of the characteristic polynomial of the `MA` part lie outside the unit circle the model is invertible. Here, we deal with the inverse of the roots, so we want all the points inside instead of outside, which is true. Thus, the model can be represented as a convergent $AR(\infty)$ expression with $\pi$-weights (useful for estimating point predictions). For causality, we know that all MA(q) models are causal, which is the case. Thus, the model can be represented as a convergent $MA(\infty)$ expression with $\psi$-weights(useful for estimating the variance of estimated point predictions).
+
+**Residuals independence**
+
+As for `ljung box` tests, we see several rejections of white noise for residuals, since there are p values lower than $0,05$. The null hypothesis for the Ljung-Box test is that the auto-correlations of a time series are zero for all lags up to a certain specified lag $k$. In this specific case, from lag 22 to beyond, most of the lags fail the test for no-autocorrelation, so it can't be deemed as white noise behavior.
 
 ## mod1b
 
+In this case, we won't go step by step and will perform the whole validation with the `validation` function graphs and tests at once.
+
 ```{r}
 validation(mod1b)
+
+res2 = resid(mod1b)
+par(mfrow=c(1,2))
+acf(res2^2, ylim=c(-1,1), lag.max = 72, col=c(2,rep(1,11)),lwd=2)
+pacf(res2^2, ylim=c(-1,1), lag.max = 72, col=c(rep(1,11),2), lwd=2)
+par(mfrow=c(1,1))
 ```
 
-**ADD COMMENTS ON THE RESULTS OF mod1b HERE, ONCE THIS IS DONE WE NEED TO SELECT BETWEEN THE 2 MODELS (QUESTION 3D) AND THEN UPDATE THE CODE BELOW FOR QUESTION 4 AND 5. CODE OF QUESTION 4 IS READY, WE ONLY NEED TO CHANGE `pdq` and `PDQ` IN THE FOLLOWING COMMAND. OUTLIER TREATMENT IS COMPLETELY MISSING !!!**
+**Normality and variance**
 
-* breushch pagan reject homoscedasticity
-* ljung box too many lags below 0,05, reject white noise of combination of residuals. that combination of residuals come from with rnsoise. 
-* no ma part, invertible? means all ar models are invertible, no root in ma part.
-* causal because no ar part in roots.
+We have very similar behavior as in `mod1a`, with a possible normality affected by outliers, according to the Q-Q plot and the histogram. Nonetheless, for this model, the Shapiro-Wilk test acknowledges normality, as opposite to the other model. For variance, outliers could also be making the Breusch-Pagan test to reject homoscedasticity and the square root of absolute residuals shows a bit of variance variability at the first half of the data.
+
+**Invertibility and causality**
+
+Since --> Modul of AR Characteristic polynomial Roots:  1.814813 1.814813 3.090462 and --> Modul of MA Characteristic polynomial Roots:  1.017058 1.017058 1.017058 1.017058 1.017058 1.017058 1.017058 1.017058 1.017058 1.017058 1.017058 1.017058 
+
+We can say the model is invertible and causal. Thus, the model can be represented as a convergent $AR(\infty)$ expression with $\pi$-weights (useful for estimating point predictions) In addition, the model can be represented as a convergent $MA(\infty)$ expression with $\psi$-weights(useful for estimating the variance of estimated point predictions).
+
+**Residuals independence**
+
+As for `ljung box` tests, we see several rejections of white noise for residuals, since there are p values lower than $0,05$. The null hypothesis for the Ljung-Box test is that the auto-correlations of a time series are zero for all lags up to a certain specified lag $k$. In this specific case, from lag 30 to beyond, most of the lags fail the test for no-autocorrelation, so it can't be deemed as white noise behavior.
+
 
 # Predictions
 
-## mod1a
+Both models showcase similar behavior affected potentially by outliers. Nonetheless, slightly more favorable assessments obtained with `mod1b` for normality and Ljung-Box test, and very similar `AIC` goodness of fit and simplicity indicator is the reason why we choose `mod1b` for the prediction section.
+
+We use proposed `mod1b` $ARIMA(3,1,0)(0,1,1)_{12}$ model for predictions
+
+## Stability of mod1b
 
 ```{r}
 # capability of prediction and calculation of the measures
 # position of last observation for train dataset is 12 2018. test from there until 2019 12. 
 ultim=c(2018,12)
-pdq=c(1,1,2)
+pdq=c(3,1,0)
 PDQ=c(0,1,1)
 
 serie2=window(serie, end=ultim)
@@ -631,11 +647,9 @@ lnserie1=log(serie1)
 ```{r}
 (modB=arima(lnserie2,order=pdq,seasonal=list(order=PDQ,period=12)))
 ```
+Clearly, stability of the model is fulfilled. We observe similar results in terms of significance, sign and magnitude. In practice, this means that the correlation structure has not changed in the last year, and that the use of the complete series for making predictions is reliable. Test set is stable.
 
-
-** Clearly, stability of the model is fulfilled! We observe similar results in terms of significance, sign and magnitud. In practice, this means that the correlation structure has not changed in the last year, and that the use of the complete series for making predictions is reliable.
-
-Remark: Models adequacy can be compared via the AIC, but only when they are based on the same data and on the same scale. (For instance, you cannot compare the model based on the complete and incomplete series via the AIC!!) **
+## Forecasting
 
 
 ```{r}
@@ -652,6 +666,13 @@ pr<-ts(exp(pr),start=ultim,freq=12)
 ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-2,+2),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
 abline(v=(ultim[1]-2):(ultim[1]+2),lty=3,col=4)
 ```
+```{r}
+(previs=window(cbind(tl,pr,tu,serie,error=round(serie-pr,3)),start=ultim))
+
+```
+
+
+
 ```{r}
 obs=window(serie,start=ultim+c(0,1))
 pr=window(pr,start=ultim+c(0,1))
@@ -670,7 +691,9 @@ mCI1=mean(tu-tl)
 
 cat("\nMean Length CI: ",mCI1)
 ```
+#### erform long term predictions
 
+Predict values for after 2020 based on the complete series. We use our model with the whole set as training set --> `modA`
 ```{r}
 pred=predict(modA,n.ahead=12)
 pr<-ts(c(tail(lnserie1,1),pred$pred),start=ultim+c(1,0),freq=12)
@@ -689,18 +712,36 @@ abline(v=(ultim[1]-2):(ultim[1]+3),lty=3,col=4)
 
 # Outlier Treatment
 
+## Calendar effects
+
+Because we have a monthly series, we check the significance of the potential calendar effects on our log_transformed series, which will be Easter and Trading Days over our model `mod1a`
+
 ```{r}
-########## Atípics (Outliers) ###############################################
-source("atipics2.r")
+source("CalendarEffects.r")
+data=c(start(lnserie)[1],start(lnserie)[2], length(lnserie))
+
+(wTradDays=Wtrad(data))
+(wEast=Weaster(data))
 ```
 
-* The atipics2 R-script contains two R-functions named outdetec and lineal.
+```{r}
+(mod1b)
+```
+```{r}
+(mod1a_TD <- arima(lnserie, order=c(3,1,0), seasonal=list(order=c(0,1,1), period=12),xreg=wTradDays))
+```
 
-* The outdetec R-function returns the automatically detected outliers and their types.
+```{r}
+(mod1a_E <- arima(lnserie, order=c(3,1,0), seasonal=list(order=c(0,1,1), period=12),xreg=wEast))
+```
 
-* The lineal R-function returns the so called linearized or theoretical series (free of outliers).
 
-* An ARIMA model is identified and fitted to this linearized series. The found model, once validated, can be used for performing forecasting. It would be expected that one gets better predictions; particularly more precise ones. Be aware that this model might be different than the one found with no treatment of outliers.
+```{r}
+(mod1a_ETD <- arima(lnserie, order=c(3,1,0), seasonal=list(order=c(0,1,1), period=12), xreg=data.frame(wTradDays,wEast)))
+```
+We can observe no significance of any of the new coefficients based on calendar effects, each one has t_ratio < 2 and their inclusion doesn't return any improvement whatsoever in the AIC. In other terms, the calendar effects are determined to be NOT significant in this time series.
+
+
 
 ## Outliers automatic detection and its treatment
 
@@ -708,33 +749,34 @@ source("atipics2.r")
 ##Detection of outliers: In this case, we have applied a regular and a seasonal differentiation of order $S=12$. We set the criterion to $crit = 2.8$ and also the argument LS to TRUE.
 ## The crit value chosen by the researcher is typically fixed around 3; the LS argument is optional (= TRUE if one aims to detect a level shift)
 
-mod.atip=outdetec(modA,dif=c(1,12),crit=2.8,LS=T) # automatic detection of outliers with crit=2.8 and LS =TRUE
+#Our final model from the previous part was modA, which now will be called for simplicity mod
+mod = modA
+
+source("atipics2.r")
+
+mod.atip=outdetec(mod,dif=c(1,12),crit=2.8,LS=T) # automatic detection of outliers with crit=2.8 and LS =TRUE
 
 #Estimated residual variance after outliers detection and treatment
 mod.atip$sigma
-```
-Table with detected outliers, their types, magnitud, statistic values and chronology and percentage of variation (relative since in log scale)
 
-```{r}
 atipics=mod.atip$atip[order(mod.atip$atip[,1]),]
 meses=c("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
 
 data.frame(atipics,Fecha=paste(meses[(atipics[,1]-1)%%12+1],start(lnserie)[1]+((atipics[,1]-1)%/%12)),perc.Obs=exp(atipics[,3])*100)
 ```
 
-*Some interpretation of results:
+Interpretation of some of the outliers found:
 
-The 14th observation is a transitory change (TC) type of outlier with a significant statistic’s value |6.12|>2. Its magnitud is given by Wcoeff=−0.21 in the log scale (our series was log-transformed), which means that a decrease in the number of passengers is observed with respect to what would have happened if this atypical had not taken place. The effect of the TC outlier is noticed in February 1991 (Irak war), but attenuates relatively fast after few periods (exponential decrease with delta=0.7, usually).
+- The 14th observation is identified as a transient change (TC) outlier, characterized by a notable statistical value |3.6|>2. In the logarithmic scale (our series being log-transformed), its magnitude is represented by Wcoeff=-0.12, indicating a decline in the number of passengers compared to what would have occurred without this atypical event. The impact of the TC outlier is evident in February 1991 during the Iraq War but diminishes relatively swiftly over subsequent periods, following an exponential decrease with a delta value of 0.7.
 
-The second is an additive outlier (AO) that occurs in August 1992 (Olympic games in Bcn). As learned in theory, its effect is only noticed at that specific date.
+- On January 2001, a level shift (LS) outlier with -0.12 W_coeff is found, which means that from that point on the renewable production was lower than expected. After researching, the Department of Energy (DOE) of the US attributed much of the decline to a drought that cut generation of hydroelectric power by 23 percent, but as we can see that outlier is of type LS and not a circumstantial issue, which contradicts the DOE's version.
 
-In November 2012 a level shift (LS) type of outlier is detected; that coincides with the year of the second economic crisis. Its effect takes place from that moment on.
+- From June 1992 on, the renewable energy production raised a 10% (level shift outlier). On October of that year, the Energy Policy Act of 1992 (EPAct 1992) provided three types of incentives to support the development of renewable energy resources. Although the law approval and the trend don't coincide in the month, we believe it could be the cause.
 
-Be reminded that the magnitud column (W_coeff) is on the log scale), but if we appply the exponential function and multiply by 100% we get the percentage relative variation effect. In case of the previously mentioned TC in Feb. 1991, we get exp(−0.21594176)=0.8057822
-. This means that, in Feb. 1991, we only observed 80% of the flights that would have occurred without the presence of this atypical phenomenon (Iraq war); an effect of a 19.37% decrease (black line below red). *
 
-## Comparing observed series with linearized (without outliers) series
-Plot together (in original scale) the observed and the linearized series (without outliers)
+### Obtaining linearized time series and visualizing it
+
+We can see below on red the linealized time series and in black the original time series.
 
 ```{r}
 lnserie.lin=lineal(lnserie,mod.atip$atip)
@@ -744,16 +786,14 @@ plot(serie.lin,col=2)
 lines(serie)
 ```
 
-#### Profile of outliers effect: plot of the outliers effect in the log-transformed series
+### Profile of outliers effect: plot of the outliers effect in the log-transformed series
 ```{r}
 plot(lnserie-lnserie.lin)
 ```
 
 ## Identification and Estimation based on the Linearized Series
-*Just by looking at this profile you can easily identify the different types of outliers…*
 
-Identify an ARIMA model to the linearized series (in log-sacle in this case)
-P(ACF) of linearized series (in log-scale)
+We apply a regular difference and a seasonal difference (12 months) and we can propose a model for the linearized version: 
 
 ```{r}
 d1d12lnserie.lin=diff(diff(lnserie.lin,12))
@@ -762,100 +802,60 @@ acf(d1d12lnserie.lin,ylim=c(-1,1),lag.max=72,col=c(2,rep(1,11)),lwd=2)
 pacf(d1d12lnserie.lin,ylim=c(-1,1),lag.max=72,col=c(rep(1,11),2),lwd=2)
 par(mfrow=c(1,1))
 ```
-* Seasonal part (red lags): MA(Q=1) or AR(P=4) again.
-  * (0,1,1)_12 (MA(Q=1))
-  * (4,1,0)_12 (AR(P=4))
-* Regular part (black lags): MA(q=2), or MA(q=5) or AR(p=3). Since AR(p=3) has 3 parameters we can try with ARMA(1,1) as well. We could also check ARMA(2,1) or ARMA(1,2) as well, but for simplicity reasons we consider it future work.
+* Seasonal part (red lags): SMA(Q=1) pretty clearly
+  * (0,1,1)_12 (SMA(Q=1))
+* Regular part (black lags): MA(q=2) or AR(p=3). Since AR(p=3) has 3 parameters we can try with ARMA(1,1) as well. 
   * (0,1,2) (MA(q=2))
-  * (0,1,5) (MA(q=5))
   * (3,1,0) (AR(p=3))
   * (1,1,1) (ARMA(p=1,q=1))
 
-### Final 8 proposed models:
+### Final 3 proposed models:
 * (0,1,2)(0,1,1)_12
-* (0,1,5)(0,1,1)_12
 * (3,1,0)(0,1,1)_12
 * (1,1,1)(0,1,1)_12
-* (0,1,2)(4,1,0)_12
-* (0,1,5)(4,1,0)_12
-* (3,1,0)(4,1,0)_12
-* (1,1,1)(4,1,0)_12
+
 
 ```{r}
 (mod.lin.a=arima(lnserie.lin,order=c(0,1,2),seasonal=list(order=c(0,1,1),period=12)))
-```
-```{r}
+
 abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))
 cat("\nSignificant?:",abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))>2)
 ```
 
-All coeffs are significant! The residual variance decreased, as expected!
+```{r}
+(mod.lin.b=arima(lnserie.lin,order=c(3,1,0),seasonal=list(order=c(0,1,1),period=12)))
 
-```{r}
-(mod.lin.b=arima(lnserie.lin,order=c(0,1,5),seasonal=list(order=c(0,1,1),period=12)))
-```
-```{r}
-abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))>2)
-```
-```{r}
-(mod.lin.c=arima(lnserie.lin,order=c(3,1,0),seasonal=list(order=c(0,1,1),period=12)))
-```
-```{r}
-abs(mod.lin.c$coef/sqrt(diag(mod.lin.c$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.c$coef/sqrt(diag(mod.lin.c$var.coef)))>2)
-```
-All coeffs are significant! The residual variance decreased even more, as expected!
-
-```{r}
-(mod.lin.d=arima(lnserie.lin,order=c(1,1,1),seasonal=list(order=c(0,1,1),period=12)))
-```
-```{r}
-abs(mod.lin.d$coef/sqrt(diag(mod.lin.d$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.d$coef/sqrt(diag(mod.lin.d$var.coef)))>2)
+abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))
+cat("\nSignificant?:",abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))>2)
 ```
 
 ```{r}
-(mod.lin.e=arima(lnserie.lin,order=c(0,1,2),seasonal=list(order=c(4,1,0),period=12)))
-```
-```{r}
-abs(mod.lin.e$coef/sqrt(diag(mod.lin.e$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.e$coef/sqrt(diag(mod.lin.e$var.coef)))>2)
-```
-```{r}
-(mod.lin.f=arima(lnserie.lin,order=c(0,1,5),seasonal=list(order=c(4,1,0),period=12)))
-```
-```{r}
-abs(mod.lin.f$coef/sqrt(diag(mod.lin.f$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.f$coef/sqrt(diag(mod.lin.f$var.coef)))>2)
-```
-```{r}
-(mod.lin.g=arima(lnserie.lin,order=c(3,1,0),seasonal=list(order=c(4,1,0),period=12)))
-```
-```{r}
-abs(mod.lin.g$coef/sqrt(diag(mod.lin.g$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.g$coef/sqrt(diag(mod.lin.g$var.coef)))>2)
-```
-```{r}
-(mod.lin.h=arima(lnserie.lin,order=c(1,1,1),seasonal=list(order=c(4,1,0),period=12)))
-```
-```{r}
-abs(mod.lin.h$coef/sqrt(diag(mod.lin.h$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.h$coef/sqrt(diag(mod.lin.h$var.coef)))>2)
-```
+(mod.lin.b=arima(lnserie.lin,order=c(1,1,1),seasonal=list(order=c(0,1,1),period=12)))
 
+abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))
+cat("\nSignificant?:",abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))>2)
+```
+We see that as in the non-linearized case, the best models according to the AIC indicator are A = (0,1,2)(0,1,1)_12 and B = (3,1,0)(0,1,1)_12. Before, the validation process made us decide in favour of model B though having slightly worse AIC but slightly better results after the residual analysis. Because the AIC differences are still small here, we will decide to use `mod.lin.b` for validation and forecasting comparison to its rival `mod1b`
 
-Best AIC for `mod.lin.a`
-
-Proceed to validate the model.
-
-### Validation of model fitted to the (log) linearized series
+## Validation of model fitted to the (log) linearized series
 
 ```{r}
-model=mod.lin.a       #Fitted ARIMA model: in this case mod is ARIMA(0,1,2)(0,1,1)_12 for lnserie
+model=mod.lin.b       #Fitted ARIMA model: in this case mod is ARIMA(0,1,2)(0,1,1)_12 for lnserie
 validation(model)
 ```
+**Normality and variance**
+They are both reasonably accepted according to Shapiro-Wilk and Breusch-Pagan tests, and by Q-Q plots, histogram, square root of residuals. Residuals plot doesn't have outliers out of confidence interval, which it had in previous models.
 
 
+**Invertibility and causality**
+Yes to both, all roots >1 in both cases for AR(inf) and MA(inf)
+
+
+**Residuals independence**
+
+Failed according to Ljung-Box statistic from a certain lag >15 and so on. Nonetheless, Durbin-Watson doesn't reject autocorrelation <0.
+
+
+## Forecasting and prediction capability: linearized vs original model
 
 
