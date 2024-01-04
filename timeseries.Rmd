@@ -10,6 +10,7 @@ Data is gathered from the [US Energy Information Administration](https://www.eia
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(chron)
 ```
 
 # Reading and visualizing original timeseries
@@ -691,7 +692,7 @@ mCI1=mean(tu-tl)
 
 cat("\nMean Length CI: ",mCI1)
 ```
-#### erform long term predictions
+#### Perform long term predictions
 
 Predict values for after 2020 based on the complete series. We use our model with the whole set as training set --> `modA`
 ```{r}
@@ -767,7 +768,7 @@ data.frame(atipics,Fecha=paste(meses[(atipics[,1]-1)%%12+1],start(lnserie)[1]+((
 
 Interpretation of some of the outliers found:
 
-- The 14th observation is identified as a transient change (TC) outlier, characterized by a notable statistical value |3.6|>2. In the logarithmic scale (our series being log-transformed), its magnitude is represented by Wcoeff=-0.12, indicating a decline in the number of passengers compared to what would have occurred without this atypical event. The impact of the TC outlier is evident in February 1991 during the Iraq War but diminishes relatively swiftly over subsequent periods, following an exponential decrease with a delta value of 0.7.
+- The 14th observation is identified as a transient change (TC) outlier, characterized by a notable statistical value |3.6|>2. In the logarithmic scale (our series being log-transformed), its magnitude is represented by Wcoeff=-0.12, indicating a decline in the total production of renewable energy in USA compared to what would have occurred without this atypical event. The impact of the TC outlier is evident in February 1991 during the Iraq War but diminishes relatively swiftly over subsequent periods, following an exponential decrease with a delta value of 0.7.
 
 - On January 2001, a level shift (LS) outlier with -0.12 W_coeff is found, which means that from that point on the renewable production was lower than expected. After researching, the Department of Energy (DOE) of the US attributed much of the decline to a drought that cut generation of hydroelectric power by 23 percent, but as we can see that outlier is of type LS and not a circumstantial issue, which contradicts the DOE's version.
 
@@ -825,15 +826,15 @@ cat("\nSignificant?:",abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))>2)
 ```{r}
 (mod.lin.b=arima(lnserie.lin,order=c(3,1,0),seasonal=list(order=c(0,1,1),period=12)))
 
-abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))>2)
+abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))
+cat("\nSignificant?:",abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))>2)
 ```
 
 ```{r}
-(mod.lin.b=arima(lnserie.lin,order=c(1,1,1),seasonal=list(order=c(0,1,1),period=12)))
+(mod.lin.c=arima(lnserie.lin,order=c(1,1,1),seasonal=list(order=c(0,1,1),period=12)))
 
-abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))
-cat("\nSignificant?:",abs(mod.lin.a$coef/sqrt(diag(mod.lin.a$var.coef)))>2)
+abs(mod.lin.c$coef/sqrt(diag(mod.lin.c$var.coef)))
+cat("\nSignificant?:",abs(mod.lin.c$coef/sqrt(diag(mod.lin.c$var.coef)))>2)
 ```
 We see that as in the non-linearized case, the best models according to the AIC indicator are A = (0,1,2)(0,1,1)_12 and B = (3,1,0)(0,1,1)_12. Before, the validation process made us decide in favour of model B though having slightly worse AIC but slightly better results after the residual analysis. Because the AIC differences are still small here, we will decide to use `mod.lin.b` for validation and forecasting comparison to its rival `mod1b`
 
