@@ -547,7 +547,7 @@ pacf(res^2, ylim=c(-1,1), lag.max = 72, col=c(rep(1,11),2), lwd=2)
 par(mfrow=c(1,1))
 ```
 
-We need all the lags to be not significant, meaning that there is no correlation between the residuals with them-selfesWhen we find significant lags here, implies that there is volatility. It means that we have a time series that at some point the variability is small and at the same level in a different time the variability is high.
+We need all the lags to be not significant, meaning that there is no correlation between the residuals with themselves. When we find significant lags here, implies that there is volatility. It means that we have a time series that at some point the variability is small and at the same level in a different time the variability is high.
 
 When heteroscedasticity is present, there are 2 things that might lead to this result, or we have outliers or volatility. If the points lying outside the borders are not so much most probably we are having outliers, otherwise we might have volatility.
 
@@ -715,7 +715,7 @@ abline(v=(ultim[1]-2):(ultim[1]+3),lty=3,col=4)
 
 ## Calendar effects
 
-Because we have a monthly series, we check the significance of the potential calendar effects on our log_transformed series, which will be Easter and Trading Days over our model `mod1a`
+Because we have a monthly series, we check the significance of the potential calendar effects on our log_transformed series, which will be Easter and Trading Days over our model `mod1b`
 
 ```{r}
 source("CalendarEffects.r")
@@ -803,7 +803,7 @@ acf(d1d12lnserie.lin,ylim=c(-1,1),lag.max=72,col=c(2,rep(1,11)),lwd=2)
 pacf(d1d12lnserie.lin,ylim=c(-1,1),lag.max=72,col=c(rep(1,11),2),lwd=2)
 par(mfrow=c(1,1))
 ```
-* Seasonal part (red lags): SMA(Q=1) pretty clearly
+* Seasonal part (red lags): SMA(Q=1) pretty clearly.
   * (0,1,1)_12 (SMA(Q=1))
 * Regular part (black lags): MA(q=2) or AR(p=3). Since AR(p=3) has 3 parameters we can try with ARMA(1,1) as well. 
   * (0,1,2) (MA(q=2))
@@ -838,25 +838,150 @@ cat("\nSignificant?:",abs(mod.lin.c$coef/sqrt(diag(mod.lin.c$var.coef)))>2)
 ```
 We see that as in the non-linearized case, the best models according to the AIC indicator are A = (0,1,2)(0,1,1)_12 and B = (3,1,0)(0,1,1)_12. Before, the validation process made us decide in favour of model B though having slightly worse AIC but slightly better results after the residual analysis. Because the AIC differences are still small here, we will decide to use `mod.lin.b` for validation and forecasting comparison to its rival `mod1b`
 
+Nonetheless, before proceeding, we test for an extra MA seasonal lag and MA regular to see its effect and if we should extend or not `mod.lin.b`:
+
+```{r}
+(mod.lin.b_2=arima(lnserie.lin,order=c(4,1,0),seasonal=list(order=c(0,1,1),period=12)))
+
+abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))
+cat("\nSignificant?:",abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))>2)
+```
+
+```{r}
+(mod.lin.b_3=arima(lnserie.lin,order=c(3,1,0),seasonal=list(order=c(0,1,2),period=12)))
+
+abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))
+cat("\nSignificant?:",abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))>2)
+```
+
+```{r}
+(mod.lin.b_4=arima(lnserie.lin,order=c(4,1,0),seasonal=list(order=c(0,1,2),period=12)))
+
+abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))
+cat("\nSignificant?:",abs(mod.lin.b$coef/sqrt(diag(mod.lin.b$var.coef)))>2)
+```
+And now, according to those results, adding an extra seasonal lag `sma2`, as in `model.lin.b_3` = B = (3,1,0)(0,1,2)_12 decreases the AIC with aic = -1367.04, improving the model rating. Because of that, we finally continue with `model.lin.b_3`.
+
 ## Validation of model fitted to the (log) linearized series
 
 ```{r}
-model=mod.lin.b       #Fitted ARIMA model: in this case mod is ARIMA(0,1,2)(0,1,1)_12 for lnserie
+model=mod.lin.b_3       #Fitted ARIMA model: in this case mod is ARIMA(0,1,2)(0,1,1)_12 for lnserie
 validation(model)
 ```
 **Normality and variance**
-They are both reasonably accepted according to Shapiro-Wilk and Breusch-Pagan tests, and by Q-Q plots, histogram, square root of residuals. Residuals plot doesn't have outliers out of confidence interval, which it had in previous models.
+
+They are both much more accepted than before according to Shapiro-Wilk and Breusch-Pagan tests, and by Q-Q plots, histogram, square root of residuals. Residuals plot doesn't have outliers out of confidence interval, which it had in previous models.
 
 
 **Invertibility and causality**
-Yes to both, all roots >1 in both cases for AR(inf) and MA(inf)
+
+Modul of AR Characteristic polynomial Roots:  1.555798 2.249925 1.555798 
+Modul of MA Characteristic polynomial Roots:  1.159602 1.015442 1.015442 1.015442 1.015442 1.015442 1.015442 1.015442 1.015442 1.159602 1.015442 1.159602 1.015442 1.015442 1.159602 1.015442 1.159602 1.159602 1.159602 1.159602 1.159602 1.159602 1.159602 1.159602
+
+Yes to both, all roots >1 in both cases for AR(inf) and MA(inf).
 
 
 **Residuals independence**
 
-Failed according to Ljung-Box statistic from a certain lag >15 and so on. Nonetheless, Durbin-Watson doesn't reject autocorrelation <0.
+We have to arrive until lag 50 in the Ljung-Box test in order to fail lag independence, which is a considerable improvement compared to previous models. On the other hand, in the Durbin-Watson test the accepted hypothesis is that there is no evidence to suggest a first-order autocorrelation in the residuals, and they can be considered independent.
+
+#### Linearized model stability
+
+```{r}
+ultim=c(2018,12)
+pdq=c(3,1,0)
+PDQ=c(0,1,2)
+
+serie1.lin=window(serie.lin,end=ultim+c(1,0))
+lnserie1.lin=log(serie1.lin)
+serie2.lin=window(serie.lin,end=ultim)
+lnserie2.lin=log(serie2.lin)
+
+(mod.lin=arima(lnserie1.lin,order=pdq,seasonal=list(order=PDQ,period=12)))
+```
+```{r}
+(mod2.lin=arima(lnserie2.lin,order=pdq,seasonal=list(order=PDQ,period=12)))
+```
+Because of the huge similarity in the coefficients and standard error we confirm the stability of the linearized model.
+
+## Forecasting and prediction capability: linearized model
+
+```{r}
+pred=predict(mod2.lin,n.ahead=12)
+wLS=sum(mod.atip$atip[mod.atip$atip$type_detected=="LS" & mod.atip$atip$Obs<=length(serie)-12,3])
+predic=pred$pr+wLS
+pr<-ts(c(tail(lnserie2,1),predic),start=ultim,freq=12) #puntual predictions (log-scale) obtained
+se<-ts(c(0,pred$se),start=ultim,freq=12) #Standard errors for puntual predictions
+
+##Prediction Intervals (back transformed to original scale using exp-function)
+tl<-ts(exp(pr-1.96*se),start=ultim,freq=12)
+tu<-ts(exp(pr+1.96*se),start=ultim,freq=12)
+pr<-ts(exp(pr),start=ultim,freq=12)
+
+#Plot of the original airbcn series (thousands) and out-of-sample predictions
+ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-3,+2),type="o",main="Model ARIMA(3,1,0)(0,1,2)12 linearized")
+abline(v=(ultim[1]-3):(ultim[1]+2),lty=3,col=4)
+
+mCI2=mean(tu-tl)
+
+cat("\nMean Length CI: ",mCI2)
+```
+```{r}
+(previs.lin=window(cbind(tl,pr,tu,serie,error=round(serie-pr,3)),start=ultim))
+
+obs=window(serie,start=ultim)
+mod.RMSE2=sqrt(sum((obs-pr)^2)/12)
+mod.MAE2=sum(abs(obs-pr))/12
+mod.RMSPE2=sqrt(sum(((obs-pr)/obs)^2)/12)
+mod.MAPE2=sum(abs(obs-pr)/obs)/12
+
+data.frame("RMSE"=mod.RMSE2,"MAE"=mod.MAE2,"RMSPE"=mod.RMSPE2,"MAPE"=mod.MAPE2)
+```
+#### Long term prediction linearized model
+
+```{r}
+pred=predict(mod.lin,n.ahead=12)
+wLS=sum(mod.atip$atip[mod.atip$atip$type_detected=="LS",3])
+
+##Must correct predictions for LS outliers
+predic=pred$pr+wLS
+
+pr<-ts(c(lnserie[length(lnserie)],predic),start=ultim+c(1,0),freq=12)
+se<-ts(c(0,pred$se),start=ultim+c(1,0),freq=12)
+
+#Intervals
+tl2<-ts(exp(pr-1.96*se),start=ultim+c(1,0),freq=12)
+tu2<-ts(exp(pr+1.96*se),start=ultim+c(1,0),freq=12)
+pr2<-ts(exp(pr),start=ultim+c(1,0),freq=12)
+
+ts.plot(serie,tl2,tu2,pr2,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-1,+3),type="o",main="Model ARIMA(3,1,0)(0,1,2)12 Linearized")
+abline(v=(ultim[1]-2):(ultim[1]+3),lty=3,col=4)
+```
 
 
-## Forecasting and prediction capability: linearized vs original model
+## Compare the original and linearized model
 
+```{r}
+ts.plot(serie,tl1,tu1,pr1,tl2,tu2,pr2,lty=c(1,2,2,1,2,2,1),col=c(1,4,4,2,3,3,6),xlim=ultim[1]+c(1,3),type="o",main="RenewUSA")
+legend("topleft",c("ARIMA(3,1,0)(0,1,1)12","ARIMA(3,1,0)(0,1,2)12 linearized"),col=c(4,3),lty=1,lwd=2)
+abline(v=ultim[1]+1:3,lty=3,col=4)
+```
+
+As we can observe, the predictions between the two models are very similar. The only difference lies in the confidence band, which has been reduced for the linearized model, which is a bit more assertive about its predictions.
+
+```{r}
+resul=data.frame(
+  par=c(length(coef(mod)),length(coef(mod.lin))+nrow(mod.atip$atip)),
+  Sigma2Z=c(mod$sigma2,mod.lin$sigma2),
+  AIC=c(AIC(mod),AIC(mod.lin)+2*nrow(mod.atip$atip)),
+  BIC=c(BIC(mod),BIC(mod.lin)+log(length(serie)-13)*nrow(mod.atip$atip)),
+  RMSE=c(mod.RMSE1,mod.RMSE2),
+  MAE=c(mod.MAE1,mod.MAE2),
+  RMSPE=c(mod.RMSPE1,mod.RMSPE2),
+  MAPE=c(mod.MAPE1,mod.MAPE2),
+  meanLength=c(mCI1,mCI2))
+row.names(resul)=c("ARIMA(3,1,0)(0,1,1)_12","ARIMA(3,1,0)(0,1,2)_12 Linearized")
+resul
+```
+The linearized model is a better model according to AIC and BIC, but in this 2019 to 2020 prediction, the evaluation metrics (RMSE, MAE, RMSPE, MAPE) tell us that the non-linearized model gives slightly better values. For instance the RMSE of the ARIMA(3,1,0)(0,1,1)_12 is 27.05704, whilst for the ARIMA(3,1,0)(0,1,2)_12 Linearized is 27.68585, which is 0.6 points worse approximately.
 
